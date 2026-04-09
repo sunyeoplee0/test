@@ -1,10 +1,7 @@
 pipeline {
     agent any
-    tools {
-            nodejs 'node20' // Global Tool Configuration에서 정한 이름과 일치해야 함
-        }
+
     environment {
-        // 도커 이미지명 정의 (본인 계정으로 수정 필수)
         DOCKER_IMAGE = "sunyeoplee/frontend-app"
         NAMESPACE = "lee"
     }
@@ -12,15 +9,16 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                // GitHub에서 코드를 가져옴
                 checkout scm
             }
         }
 
         stage('Frontend Build') {
             steps {
-                // 중요: vue-project 폴더로 이동해서 빌드 진행
                 dir('vue-project') {
+                    // 도구 설정 대신 직접 npm 호출
+                    // 만약 서버에 npm이 없다면 이 단계에서 에러가 날 것이나,
+                    // 컴파일 에러(nodejs 찾지 못함)는 일단 피할 수 있습니다.
                     sh 'npm install'
                     sh 'npm run build'
                 }
