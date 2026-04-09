@@ -1,7 +1,7 @@
 pipeline {
     agent any
 
-    // 이 블록이 추가되어야 대시보드에서 설정한 node20을 불러옵니다.
+    // 젠킨스 Global Tool Configuration에서 설정한 이름과 일치해야 함
     tools {
         nodejs 'node20'
     }
@@ -9,12 +9,19 @@ pipeline {
     environment {
         DOCKER_IMAGE = "sunyeoplee/frontend-app"
         NAMESPACE = "lee"
-        // PATH 설정은 tools가 알아서 해주므로 삭제해도 무방합니다.
     }
 
     stages {
+        stage('Checkout') {
+            steps {
+                // GitHub에서 최신 코드를 가져옴
+                checkout scm
+            }
+        }
+
         stage('Frontend Build') {
             steps {
+                // 소스코드가 있는 vue-project 폴더로 들어가서 빌드
                 dir('vue-project') {
                     sh 'npm install'
                     sh 'npm run build'
@@ -24,13 +31,13 @@ pipeline {
 
         stage('Docker Build & Push') {
             steps {
-                // cicd 폴더 내의 Dockerfile을 사용하여 이미지 빌드
-                // 빌드 컨텍스트는 vue-project 폴더로 지정
                 script {
-                    sh "docker build -t ${DOCKER_IMAGE}:${env.BUILD_NUMBER} -f cicd/Dockerfile ./vue-project"
-                    sh "docker build -t ${DOCKER_IMAGE}:latest -f cicd/Dockerfile ./vue-project"
+                    // [핵심 수정] Dockerfile의 실제 위치인 vue-project/cicd/Dockerfile을 지정
+                    // 빌드 컨텍스트(소스 위치)는 여전히 ./vue-project
+                    sh "docker build -t ${DOCKER_IMAGE}:${env.BUILD_NUMBER} -f vue-project/cicd/Dockerfile ./vue-project"
+                    sh "docker build -t ${DOCKER_IMAGE}:latest -f vue-project/cicd/Dockerfile ./vue-project"
 
-                    // Docker Hub 로그인 상태여야 함
+                    // Docker Hub 로그인 상태여야 함 (서버에서 docker login 완료 필수)
                     sh "docker push ${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
                     sh "docker push ${DOCKER_IMAGE}:latest"
                 }
@@ -39,10 +46,11 @@ pipeline {
 
         stage('K8S Deploy') {
             steps {
-                // k8s 폴더 내의 yaml 파일들을 적용 (경로 주의)
+                // K8S 설정파일이 루트의 cicd/k8s에 있다면 그대로 두고,
+                // 만약 이것도 vue-project 폴더 안에 있다면 경로를 수정해야 합니다.
                 sh "kubectl apply -f cicd/k8s/ -n ${NAMESPACE}"
 
-                // 배포된 컨테이너의 이미지를 최신 버전으로 업데이트하여 롤링 업데이트 유도
+                // Deployment의 이미지를 방금 빌드한 따끈따끈한 새 버전으로 교체
                 sh "kubectl set image deployment/frontend frontend=${DOCKER_IMAGE}:${env.BUILD_NUMBER} -n ${NAMESPACE}"
             }
         }
@@ -50,10 +58,10 @@ pipeline {
 
     post {
         success {
-            echo '배포가 성공적으로 완료되었습니다.'
+            echo '프론트엔드 배포 성공!'
         }
         failure {
-            echo '배포 중 에러가 발생했습니다. 로그를 확인하세요.'
+            echo '배포 실패. 로그를 확인하세요.'
         }
     }
 }
