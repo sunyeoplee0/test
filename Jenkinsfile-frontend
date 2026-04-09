@@ -1,0 +1,62 @@
+pipeline {
+    agent any
+
+    environment {
+        // 도커 이미지명 정의 (본인 계정으로 수정 필수)
+        DOCKER_IMAGE = "your-docker-id/frontend-app"
+        NAMESPACE = "lee"
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                // GitHub에서 코드를 가져옴
+                checkout scm
+            }
+        }
+
+        stage('Frontend Build') {
+            steps {
+                // 중요: vue-project 폴더로 이동해서 빌드 진행
+                dir('vue-project') {
+                    sh 'npm install'
+                    sh 'npm run build'
+                }
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                // cicd 폴더 내의 Dockerfile을 사용하여 이미지 빌드
+                // 빌드 컨텍스트는 vue-project 폴더로 지정
+                script {
+                    sh "docker build -t ${DOCKER_IMAGE}:${env.BUILD_NUMBER} -f cicd/Dockerfile ./vue-project"
+                    sh "docker build -t ${DOCKER_IMAGE}:latest -f cicd/Dockerfile ./vue-project"
+
+                    // Docker Hub 로그인 상태여야 함
+                    sh "docker push ${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
+                    sh "docker push ${DOCKER_IMAGE}:latest"
+                }
+            }
+        }
+
+        stage('K8S Deploy') {
+            steps {
+                // k8s 폴더 내의 yaml 파일들을 적용 (경로 주의)
+                sh "kubectl apply -f cicd/k8s/ -n ${NAMESPACE}"
+
+                // 배포된 컨테이너의 이미지를 최신 버전으로 업데이트하여 롤링 업데이트 유도
+                sh "kubectl set image deployment/frontend frontend=${DOCKER_IMAGE}:${env.BUILD_NUMBER} -n ${NAMESPACE}"
+            }
+        }
+    }
+
+    post {
+        success {
+            echo '배포가 성공적으로 완료되었습니다.'
+        }
+        failure {
+            echo '배포 중 에러가 발생했습니다. 로그를 확인하세요.'
+        }
+    }
+}
