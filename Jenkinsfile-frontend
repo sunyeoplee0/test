@@ -1,56 +1,33 @@
 pipeline {
     agent any
 
-    // 젠킨스 Global Tool Configuration에서 설정한 이름과 일치해야 함
     tools {
         nodejs 'node20'
     }
 
     environment {
-        DOCKER_IMAGE = "sunyeoplee/frontend-app"
+        // [수정] 리포지토리 이름을 실제 이름으로 변경
+        DOCKER_IMAGE = "sunyeoplee/vue-frontend"
         NAMESPACE = "lee"
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                // GitHub에서 최신 코드를 가져옴
-                checkout scm
-            }
-        }
-
-        stage('Frontend Build') {
-            steps {
-                // 소스코드가 있는 vue-project 폴더로 들어가서 빌드
-                dir('vue-project') {
-                    sh 'npm install'
-                    sh 'npm run build'
-                }
-            }
-        }
+        // ... (이전 단계 동일)
 
         stage('Docker Build & Push') {
             steps {
                 script {
-                    // [핵심 수정] Dockerfile의 실제 위치인 vue-project/cicd/Dockerfile을 지정
-                    // 빌드 컨텍스트(소스 위치)는 여전히 ./vue-project
+                    // 이제 올바른 이름으로 빌드 및 푸시를 시도합니다.
                     sh "docker build -t ${DOCKER_IMAGE}:${env.BUILD_NUMBER} -f vue-project/cicd/Dockerfile ./vue-project"
-                    sh "docker build -t ${DOCKER_IMAGE}:latest -f vue-project/cicd/Dockerfile ./vue-project"
-
-                    // Docker Hub 로그인 상태여야 함 (서버에서 docker login 완료 필수)
                     sh "docker push ${DOCKER_IMAGE}:${env.BUILD_NUMBER}"
-                    sh "docker push ${DOCKER_IMAGE}:latest"
                 }
             }
         }
 
         stage('K8S Deploy') {
             steps {
-                // K8S 설정파일이 루트의 cicd/k8s에 있다면 그대로 두고,
-                // 만약 이것도 vue-project 폴더 안에 있다면 경로를 수정해야 합니다.
                 sh "kubectl apply -f cicd/k8s/ -n ${NAMESPACE}"
-
-                // Deployment의 이미지를 방금 빌드한 따끈따끈한 새 버전으로 교체
+                // K8S Deployment 내부의 이미지 이름도 맞춰서 업데이트됩니다.
                 sh "kubectl set image deployment/frontend frontend=${DOCKER_IMAGE}:${env.BUILD_NUMBER} -n ${NAMESPACE}"
             }
         }
