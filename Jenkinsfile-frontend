@@ -1,6 +1,8 @@
 pipeline {
     agent any
-
+    tools {
+            nodejs 'node20' // Global Tool Configuration에서 정한 이름과 일치해야 함
+        }
     environment {
         // 도커 이미지명 정의 (본인 계정으로 수정 필수)
         DOCKER_IMAGE = "sunyeoplee/frontend-app"
