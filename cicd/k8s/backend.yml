@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: lee
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+    spec:
+      containers:
+        - name: backend
+          image: sunyeoplee/backend:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:mariadb://mariadb-svc.lee.svc.cluster.local:3306/board"
+            - name: SPRING_DATASOURCE_USERNAME
+              value: "lee"
+            - name: SPRING_DATASOURCE_PASSWORD
+              value: "qwer1234"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-svc
+  namespace: lee
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+  ports:
+    - port: 8080
+      targetPort: 8080
