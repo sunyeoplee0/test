@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         // 도커 이미지명 정의 (본인 계정으로 수정 필수)
-        DOCKER_IMAGE = "your-docker-id/frontend-app"
+        DOCKER_IMAGE = "sunyeoplee/frontend-app"
         NAMESPACE = "lee"
     }
 
