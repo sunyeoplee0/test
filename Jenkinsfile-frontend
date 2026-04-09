@@ -1,24 +1,21 @@
 pipeline {
     agent any
 
+    // 이 블록이 추가되어야 대시보드에서 설정한 node20을 불러옵니다.
+    tools {
+        nodejs 'node20'
+    }
+
     environment {
         DOCKER_IMAGE = "sunyeoplee/frontend-app"
         NAMESPACE = "lee"
+        // PATH 설정은 tools가 알아서 해주므로 삭제해도 무방합니다.
     }
 
     stages {
-        stage('Checkout') {
-            steps {
-                checkout scm
-            }
-        }
-
         stage('Frontend Build') {
             steps {
                 dir('vue-project') {
-                    // 도구 설정 대신 직접 npm 호출
-                    // 만약 서버에 npm이 없다면 이 단계에서 에러가 날 것이나,
-                    // 컴파일 에러(nodejs 찾지 못함)는 일단 피할 수 있습니다.
                     sh 'npm install'
                     sh 'npm run build'
                 }
